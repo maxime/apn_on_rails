@@ -80,8 +80,29 @@ class APN::Notification < APN::Base
   def message_for_sending
     json = self.to_apple_json
     raise APN::Errors::ExceededMessageSizeError.new(json) if json.length.to_i > 256
-    message = "\0\0 #{self.device.to_hexa}\0#{json.length.chr}#{json}"
-    raise APN::Errors::ExceededMessageSizeError.new(message) if message.size.to_i > 256
+    begin
+      message = "\0\0 ".encode("BINARY") + 
+                self.device.to_hexa.force_encoding("BINARY") +
+                "\0".encode("BINARY") +
+                json.length.chr.force_encoding("BINARY") +
+                json.encode("BINARY")
+    rescue Encoding::CompatibilityError => e
+      puts "Got error: #{e.inspect} - deleting message #{self.alert[0..20]}"
+      self.destroy
+      return
+    end
+    if message.size.to_i > 256
+      overrun = (message.size.to_i - 256)
+      puts "Has #{overrun} extra bytes, need to shorten alert message."
+      self.alert = self.alert[0..(self.alert.size-overrun-1)]
+      json = self.to_apple_json
+      message = "\0\0 ".encode("BINARY") + 
+                self.device.to_hexa.force_encoding("BINARY") +
+                "\0".encode("BINARY") +
+                json.length.chr.force_encoding("BINARY") +
+                json.encode("BINARY")
+      raise APN::Errors::ExceededMessageSizeError if message.size.to_i > 256
+    end
     message
   end
 
