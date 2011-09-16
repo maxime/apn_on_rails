@@ -80,7 +80,7 @@ class APN::Notification < APN::Base
   def message_for_sending
     json = self.to_apple_json
     if json.length.to_i > 256
-      overrun = (message.size.to_i - 256)
+      overrun = (json.length.to_i - 256)
       self.alert = self.alert[0..(self.alert.size-overrun-1)]
       json = self.to_apple_json
       raise APN::Errors::ExceededMessageSizeError.new(json) if json.length.to_i > 256
